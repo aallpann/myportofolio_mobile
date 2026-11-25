@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:myportofolio_mobile/screens/menu.dart';
 import 'package:myportofolio_mobile/screens/project_form.dart';
-import 'package:myportofolio_mobile/screens/experience_form.dart';
-import 'package:myportofolio_mobile/services/auth_state.dart';
 import 'package:myportofolio_mobile/screens/login_screen.dart';
+import 'package:myportofolio_mobile/services/auth_state.dart';
 import 'package:myportofolio_mobile/widgets/auth_guard.dart';
 import 'package:provider/provider.dart';
 
@@ -16,6 +15,7 @@ class LeftDrawer extends StatelessWidget {
 
     return Drawer(
       child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           const DrawerHeader(
             decoration: BoxDecoration(color: Colors.indigo),
@@ -32,54 +32,42 @@ class LeftDrawer extends StatelessWidget {
                 ),
                 SizedBox(height: 10),
                 Text(
-                  'Explore personal projects and experiences!',
+                  'Explore personal experiences!',
                   style: TextStyle(fontSize: 15, color: Colors.white),
                 ),
               ],
             ),
           ),
+
           ListTile(
             leading: const Icon(Icons.home_outlined),
             title: const Text('Home'),
             onTap: () {
+              Navigator.pop(context);
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => MyHomePage()),
+                MaterialPageRoute(builder: (_) => MyHomePage()),
               );
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.add_circle_outline),
-            title: const Text('Add Project'),
-            onTap: () async {
-              Navigator.pop(context);
-              final allowed = await ensureLoggedIn(context);
-              if (!context.mounted || !allowed) return;
 
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ProjectFormPage(),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.work_outline),
-            title: const Text('Add Experience'),
-            onTap: () async {
-              Navigator.pop(context);
-              final allowed = await ensureLoggedIn(context);
-              if (!context.mounted || !allowed) return;
+          if (isLoggedIn)
+            ListTile(
+              leading: const Icon(Icons.work_outline),
+              title: const Text('Add Experience'),
+              onTap: () async {
+                Navigator.pop(context);
 
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ExperienceFormPage(),
-                ),
-              );
-            },
-          ),
+                final allowed = await ensureLoggedIn(context);
+                if (!context.mounted || !allowed) return;
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProjectFormPage()),
+                );
+              },
+            ),
+
           if (!isLoggedIn)
             ListTile(
               leading: const Icon(Icons.login),
@@ -88,22 +76,25 @@ class LeftDrawer extends StatelessWidget {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
                 );
               },
             ),
+
           if (isLoggedIn)
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
               onTap: () async {
                 await context.read<AuthState>().logout();
+
                 if (!context.mounted) return;
+
+                Navigator.pop(context);
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Logout successful')),
                 );
-                Navigator.pop(context);
               },
             ),
         ],

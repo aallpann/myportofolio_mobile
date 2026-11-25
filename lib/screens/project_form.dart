@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:myportofolio_mobile/models/experience.dart';
+import 'package:myportofolio_mobile/services/api_client.dart';
+import 'package:myportofolio_mobile/services/auth_state.dart';
 import 'package:myportofolio_mobile/widgets/left_drawer.dart';
+import 'package:provider/provider.dart';
 
 class ProjectFormPage extends StatefulWidget {
   const ProjectFormPage({super.key});
@@ -11,175 +15,221 @@ class ProjectFormPage extends StatefulWidget {
 class _ProjectFormPageState extends State<ProjectFormPage> {
   final _formKey = GlobalKey<FormState>();
 
-  String _projectName = "";
-  String _description = "";
-  String _category = "Web Development";
-  String _technologies = "";
-  String _projectLink = "";
+  final _titleController = TextEditingController();
+  final _organizationController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _thumbnailController = TextEditingController();
 
-  final List<String> _categories = [
-    'Web Development',
-    'Mobile Development',
-    'Machine Learning',
-    'Data Science',
-    'Other',
-  ];
+  String _category = 'full-time';
+  DateTime _startedAt = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    DateTime.now().day,
+  );
+  DateTime? _endedAt;
+  bool _isSubmitting = false;
+
+  final Map<String, String> _categories = {
+    'internship': 'Internship',
+    'research': 'Research',
+    'volunteer': 'Volunteer',
+    'part-time': 'Part-Time',
+    'full-time': 'Full-Time',
+    'freelance': 'Freelance',
+  };
+
+  Future<void> _pickDate({required bool isStart}) async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _startedAt : (_endedAt ?? DateTime.now()),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+
+    if (selected != null) {
+      setState(() {
+        if (isStart) {
+          _startedAt = selected;
+        } else {
+          _endedAt = selected;
+        }
+      });
+    }
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_endedAt != null && _endedAt!.isBefore(_startedAt)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('End date cannot be before start date.')),
+      );
+      return;
+    }
+
+    final token = context.read<AuthState>().token;
+
+    if (token == null || token.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please log in first.')));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final experience = Experience(
+        title: _titleController.text.trim(),
+        organization: _organizationController.text.trim(),
+        description: _descriptionController.text.trim(),
+        category: _category,
+        thumbnail: _thumbnailController.text.trim().isEmpty
+            ? null
+            : _thumbnailController.text.trim(),
+        startedAt: _startedAt,
+        endedAt: _endedAt,
+      );
+
+      await context.read<ApiClient>().createExperience(
+        experience,
+        token: token,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Experience added successfully!')),
+      );
+
+      Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed (${e.statusCode}): ${e.message}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _organizationController.dispose();
+    _descriptionController.dispose();
+    _thumbnailController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Project Form')),
+      appBar: AppBar(title: const Text('Add Experience')),
       drawer: const LeftDrawer(),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextFormField(
-                  decoration: const InputDecoration(
-                    hintText: "Project Name",
-                    labelText: "Project Name",
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (String value) {
-                    setState(() {
-                      _projectName = value;
-                    });
-                  },
-                  validator: (String? value) {
-                    if (value == null || value.isEmpty) {
-                      return "Project name cannot be empty!";
-                    }
-                    return null;
-                  },
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Title cannot be empty'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _organizationController,
+                decoration: const InputDecoration(
+                  labelText: 'Organization',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Organization cannot be empty'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Description cannot be empty'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _category,
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(),
+                ),
+                items: _categories.entries.map((entry) {
+                  return DropdownMenuItem(
+                    value: entry.key,
+                    child: Text(entry.value),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _category = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _thumbnailController,
+                decoration: const InputDecoration(
+                  labelText: 'Thumbnail URL (optional)',
+                  border: OutlineInputBorder(),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextFormField(
-                  decoration: const InputDecoration(
-                    hintText: "Description",
-                    labelText: "Description",
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 5,
-                  onChanged: (String value) {
-                    setState(() {
-                      _description = value;
-                    });
-                  },
-                  validator: (String? value) {
-                    if (value == null || value.isEmpty) {
-                      return "Description cannot be empty!";
-                    }
-                    return null;
-                  },
+              const SizedBox(height: 12),
+              ListTile(
+                title: const Text('Start Date'),
+                subtitle: Text(
+                  '${_startedAt.day}/${_startedAt.month}/${_startedAt.year}',
                 ),
+                trailing: const Icon(Icons.calendar_month),
+                onTap: () => _pickDate(isStart: true),
               ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: "Category",
-                    border: OutlineInputBorder(),
-                  ),
-                  initialValue: _category,
-                  items: _categories.map((String category) {
-                    return DropdownMenuItem<String>(
-                      value: category,
-                      child: Text(category),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _category = newValue!;
-                    });
-                  },
+              ListTile(
+                title: const Text('End Date'),
+                subtitle: Text(
+                  _endedAt == null
+                      ? 'Ongoing'
+                      : '${_endedAt!.day}/${_endedAt!.month}/${_endedAt!.year}',
                 ),
+                trailing: const Icon(Icons.calendar_month),
+                onTap: () => _pickDate(isStart: false),
               ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextFormField(
-                  decoration: const InputDecoration(
-                    hintText: "Technologies",
-                    labelText: "Technologies",
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (String value) {
-                    setState(() {
-                      _technologies = value;
-                    });
-                  },
+              if (_endedAt != null)
+                TextButton(
+                  onPressed: () => setState(() => _endedAt = null),
+                  child: const Text('Set as Ongoing'),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextFormField(
-                  decoration: const InputDecoration(
-                    hintText: "Project Link",
-                    labelText: "Project Link",
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (String value) {
-                    setState(() {
-                      _projectLink = value;
-                    });
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: ElevatedButton(
-                  style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.all(Colors.indigo),
-                  ),
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      showDialog(
-                        context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: const Text('Project Added Successfully'),
-                            content: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Nama Proyek: $_projectName'),
-                                  Text('Deskripsi: $_description'),
-                                  Text('Kategori: $_category'),
-                                  Text('Teknologi: $_technologies'),
-                                  Text('Tautan: $_projectLink'),
-                                ],
-                              ),
-                            ),
-                            actions: [
-                              TextButton(
-                                child: const Text('OK'),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  _formKey.currentState!.reset();
-                                  setState(() {
-                                    _projectName = "";
-                                    _description = "";
-                                    _category = "Web Development";
-                                    _technologies = "";
-                                    _projectLink = "";
-                                  });
-                                },
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    }
-                  },
-                  child: const Text(
-                    "Save",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _isSubmitting ? null : _submit,
+                child: _isSubmitting
+                    ? const CircularProgressIndicator()
+                    : const Text('Save Experience'),
               ),
             ],
           ),

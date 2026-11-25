@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:myportofolio_mobile/models/project.dart';
-import 'package:myportofolio_mobile/screens/project_detail_screen.dart';
+import 'package:myportofolio_mobile/models/experience.dart';
 import 'package:myportofolio_mobile/services/api_client.dart';
 import 'package:myportofolio_mobile/widgets/left_drawer.dart';
 import 'package:provider/provider.dart';
+import 'package:myportofolio_mobile/screens/experience_detail_screen.dart';
 
 class ProjectListScreen extends StatefulWidget {
   const ProjectListScreen({super.key});
@@ -13,18 +13,18 @@ class ProjectListScreen extends StatefulWidget {
 }
 
 class _ProjectListScreenState extends State<ProjectListScreen> {
-  late Future<List<Project>> _projectsFuture;
+  late Future<List<Experience>> _experiencesFuture;
 
   @override
   void initState() {
     super.initState();
-    _projectsFuture = context.read<ApiClient>().getProjects();
+    _experiencesFuture = context.read<ApiClient>().getExperiences();
   }
 
   Future<void> _reload() async {
-    final future = context.read<ApiClient>().getProjects();
+    final future = context.read<ApiClient>().getExperiences();
     setState(() {
-      _projectsFuture = future;
+      _experiencesFuture = future;
     });
     await future;
   }
@@ -32,10 +32,10 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Achievements: Projects')),
+      appBar: AppBar(title: const Text('My Experiences')),
       drawer: const LeftDrawer(),
-      body: FutureBuilder<List<Project>>(
-        future: _projectsFuture,
+      body: FutureBuilder<List<Experience>>(
+        future: _experiencesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -49,7 +49,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Failed to load projects: ${snapshot.error}',
+                      'Failed to load experiences: ${snapshot.error}',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
@@ -64,16 +64,16 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
             );
           }
 
-          final projects = snapshot.data ?? const <Project>[];
+          final experiences = snapshot.data ?? [];
 
-          if (projects.isEmpty) {
+          if (experiences.isEmpty) {
             return RefreshIndicator(
               onRefresh: _reload,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
                   SizedBox(height: 200),
-                  Center(child: Text('No projects found.')),
+                  Center(child: Text('No experiences found.')),
                 ],
               ),
             );
@@ -82,18 +82,19 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
           return RefreshIndicator(
             onRefresh: _reload,
             child: ListView.builder(
-              itemCount: projects.length,
+              itemCount: experiences.length,
               itemBuilder: (context, index) {
-                final project = projects[index];
+                final experience = experiences[index];
 
                 return Card(
                   child: ListTile(
-                    title: Text(project.title),
+                    title: Text(experience.title),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(project.techStack),
-                        Text(project.description),
+                        Text(experience.organization),
+                        Text(experience.category),
+                        Text(experience.description),
                       ],
                     ),
                     onTap: () {
@@ -101,7 +102,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) =>
-                              ProjectDetailScreen(project: project),
+                              ExperienceDetailScreen(experience: experience),
                         ),
                       );
                     },
