@@ -192,9 +192,7 @@ class _ExperienceFormPageState extends State<ExperienceFormPage> {
                     border: OutlineInputBorder(),
                     suffixIcon: Icon(Icons.calendar_today),
                   ),
-                  controller: TextEditingController(
-                    text: formatDate(_endDate),
-                  ),
+                  controller: TextEditingController(text: formatDate(_endDate)),
                   onTap: () => _selectDate(context, false),
                   validator: (value) {
                     if (_endDate != null &&
